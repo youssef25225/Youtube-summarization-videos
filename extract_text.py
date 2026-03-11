@@ -13,11 +13,12 @@ def download_audio_temp(url: str) -> str:
     temp_dir = tempfile.mkdtemp()
 
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": os.path.join(temp_dir, "%(id)s.%(ext)s"),
-        "noplaylist": True,
-        "quiet": True
-    }
+    "format": "bestaudio/best",
+    "outtmpl": os.path.join(temp_dir, "%(id)s.%(ext)s"),
+    "noplaylist": True,
+    "quiet": True,
+    "cookiesfrombrowser": ("chrome",),  
+}
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -42,3 +43,4 @@ def transcribe(url: str) -> str:
         os.remove(file_path)
 
     return result["text"]
+
