@@ -4,3 +4,4 @@ torch>=2.2.0
 nltk>=3.8.1
 yt-dlp>=2024.4.9
 openai-whisper>=20231117
+youtube-transcript-api
