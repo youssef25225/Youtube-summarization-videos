@@ -1,76 +1,46 @@
 import streamlit as st
-from transformers import pipeline
-from nltk.tokenize import sent_tokenize
-import nltk
+import requests
 
-try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    nltk.download("punkt")
-try:
-    nltk.data.find("tokenizers/punkt_tab")
-except LookupError:
-    nltk.download("punkt_tab")
-
+HF_API_URL = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
 CHUNK_SIZE = 900
-MAX_LENGTH = 130
-MIN_LENGTH = 30
 
 
-@st.cache_resource
-def load_summarizer():
-    return pipeline(
-        "summarization",
-        model="sshleifer/distilbart-cnn-12-6",
-        device=-1
-    )
+def _get_headers():
+    token = st.secrets["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"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _chunk_text(text: str) -> list[str]:
-    sentences = sent_tokenize(text)
+    words = text.split()
     chunks = []
-    current_chunk = []
-    current_word_count = 0
-
-    for sentence in sentences:
-        word_count = len(sentence.split())
-
-        if current_word_count + word_count > CHUNK_SIZE and current_chunk:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = []
-            current_word_count = 0
-
-        current_chunk.append(sentence)
-        current_word_count += word_count
-
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
-
+    for i in range(0, len(words), CHUNK_SIZE):
+        chunks.append(" ".join(words[i:i + CHUNK_SIZE]))
     return chunks
 
 
 def summary(text: str) -> str:
-    model = load_summarizer()
+    headers = _get_headers()
     chunks = _chunk_text(text)
 
     chunk_summaries = []
     for chunk in chunks:
-        result = model(
-            chunk,
-            max_length=MAX_LENGTH,
-            min_length=MIN_LENGTH,
-            do_sample=False
+        response = requests.post(
+            HF_API_URL,
+            headers=headers,
+            json={"inputs": chunk, "parameters": {"max_length": 130, "min_length": 30}}
         )
+        response.raise_for_status()
+        result = response.json()
         chunk_summaries.append(result[0]["summary_text"])
 
     if len(chunk_summaries) > 1:
         combined = " ".join(chunk_summaries)
-        final = model(
-            combined,
-            max_length=MAX_LENGTH,
-            min_length=MIN_LENGTH,
-            do_sample=False
+        response = requests.post(
+            HF_API_URL,
+            headers=headers,
+            json={"inputs": combined, "parameters": {"max_length": 130, "min_length": 30}}
         )
-        return final[0]["summary_text"]
+        response.raise_for_status()
+        return response.json()[0]["summary_text"]
 
     return chunk_summaries[0]
