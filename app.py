@@ -1,6 +1,6 @@
 import streamlit as st
-import model
-import exctract_text
+import extract_text
+import summarizer
 import quiz
 
 st.title("Video Summarizer")
@@ -23,24 +23,22 @@ with t1:
         else:
             try:
                 with st.spinner("Processing video..."):
-                    text = exctract_text.transcribe(link)
-                    summary = model.summary(text)
-
+                    text = extract_text.transcribe(link)
+                    summary = summarizer.summary(text)
                     st.session_state.text = text
                     st.session_state.summary = summary
                     st.session_state.chat_history = []
-
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
 
     if st.session_state.summary:
-        model.display(st.session_state.summary)
+        st.markdown("### Summary")
+        st.write(st.session_state.summary)
 
 with t2:
     if st.session_state.text is None:
         st.info("Please summarize a video first.")
     else:
-
         for entry in st.session_state.chat_history:
             with st.chat_message("user"):
                 st.write(entry["question"])
@@ -56,13 +54,10 @@ with t2:
                         question,
                         st.session_state.text
                     )
-
                 st.session_state.chat_history.append({
                     "question": question,
                     "answer": answer
                 })
-
                 st.rerun()
-
             except Exception as e:
                 st.error(f"Could not generate answer: {e}")
