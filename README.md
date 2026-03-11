@@ -1,6 +1,4 @@
----
-title: Video Summarizer
-sdk: streamlit
-sdk_version: 1.32.0
-python_version: "3.11"
----
+app.py          — UI only
+extract_text.py — transcription
+summarizer.py   — BART summarization  
+quiz.py         — RoBERTa Q&A
