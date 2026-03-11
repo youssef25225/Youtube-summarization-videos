@@ -1,5 +1,5 @@
-from transformers import pipeline
 import streamlit as st
+from transformers import pipeline
 from nltk.tokenize import sent_tokenize
 import nltk
 
@@ -7,38 +7,41 @@ try:
     nltk.data.find("tokenizers/punkt")
 except LookupError:
     nltk.download("punkt")
+try:
+    nltk.data.find("tokenizers/punkt_tab")
+except LookupError:
+    nltk.download("punkt_tab")
 
-CHUNK_SIZE = 500
-MAX_LENGTH = 400
-MIN_LENGTH = 150
+CHUNK_SIZE = 900
+MAX_LENGTH = 180
+MIN_LENGTH = 40
 
 
 @st.cache_resource
-def load_model():
+def load_summarizer():
     return pipeline(
-        "summarization",
+        "text2text-generation",
         model="facebook/bart-large-cnn",
         device=-1
     )
 
 
-def _chunk_text(text: str):
+def _chunk_text(text: str) -> list[str]:
     sentences = sent_tokenize(text)
-
     chunks = []
     current_chunk = []
-    current_words = 0
+    current_word_count = 0
 
     for sentence in sentences:
-        words = len(sentence.split())
+        word_count = len(sentence.split())
 
-        if current_words + words > CHUNK_SIZE and current_chunk:
+        if current_word_count + word_count > CHUNK_SIZE and current_chunk:
             chunks.append(" ".join(current_chunk))
             current_chunk = []
-            current_words = 0
+            current_word_count = 0
 
         current_chunk.append(sentence)
-        current_words += words
+        current_word_count += word_count
 
     if current_chunk:
         chunks.append(" ".join(current_chunk))
@@ -46,65 +49,26 @@ def _chunk_text(text: str):
     return chunks
 
 
-def summary(text: str):
-
-    if not text or len(text.strip()) < 50:
-        return {
-            "points": [],
-            "detailed": "Transcript too short."
-        }
-
-    summarizer = load_model()
-
+def summary(text: str) -> str:
+    model = load_summarizer()
     chunks = _chunk_text(text)
 
     chunk_summaries = []
-
     for chunk in chunks:
-
-        result = summarizer(
+        result = model(
             chunk,
-            max_length=MAX_LENGTH,
-            min_length=MIN_LENGTH,
-            do_sample=True,
-            temperature=0.7,
-            truncation=True
+            max_new_tokens=MAX_LENGTH,
+            min_new_tokens=MIN_LENGTH,
         )
+        chunk_summaries.append(result[0]["generated_text"])
 
-        chunk_summaries.append(result[0]["summary_text"])
+    if len(chunk_summaries) > 1:
+        combined = " ".join(chunk_summaries)
+        final = model(
+            combined,
+            max_new_tokens=MAX_LENGTH,
+            min_new_tokens=MIN_LENGTH,
+        )
+        return final[0]["generated_text"]
 
-    combined = " ".join(chunk_summaries)
-
-    final_summary = summarizer(
-        combined,
-        max_length=500,
-        min_length=200,
-        do_sample=True,
-        temperature=0.7,
-        truncation=True
-    )
-
-    key_points = sent_tokenize(final_summary[0]["summary_text"])[:5]
-
-    return {
-        "points": key_points,
-        "detailed": final_summary[0]["summary_text"],
-        "chunks": chunk_summaries
-    }
-
-
-def display(data):
-
-    st.subheader("Key Points")
-
-    for p in data["points"]:
-        st.write("•", p)
-
-    st.subheader("Detailed Summary")
-    st.write(data["detailed"])
-
-    st.subheader("Section Summaries")
-
-    for i, chunk in enumerate(data["chunks"], 1):
-        st.write(f"**Part {i}:**")
-        st.write(chunk)
+    return chunk_summaries[0]
