@@ -1,6 +1,7 @@
 streamlit>=1.32.0
 transformers==4.44.2
-torch==2.4.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+torch
 nltk>=3.8.1
 youtube-transcript-api
 sentencepiece
+accelerate
