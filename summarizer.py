@@ -13,15 +13,15 @@ except LookupError:
     nltk.download("punkt_tab")
 
 CHUNK_SIZE = 900
-MAX_LENGTH = 180
-MIN_LENGTH = 40
+MAX_LENGTH = 130
+MIN_LENGTH = 30
 
 
 @st.cache_resource
 def load_summarizer():
     return pipeline(
-        "text2text-generation",
-        model="facebook/bart-large-cnn",
+        "summarization",
+        model="sshleifer/distilbart-cnn-12-6",
         device=-1
     )
 
@@ -57,18 +57,20 @@ def summary(text: str) -> str:
     for chunk in chunks:
         result = model(
             chunk,
-            max_new_tokens=MAX_LENGTH,
-            min_new_tokens=MIN_LENGTH,
+            max_length=MAX_LENGTH,
+            min_length=MIN_LENGTH,
+            do_sample=False
         )
-        chunk_summaries.append(result[0]["generated_text"])
+        chunk_summaries.append(result[0]["summary_text"])
 
     if len(chunk_summaries) > 1:
         combined = " ".join(chunk_summaries)
         final = model(
             combined,
-            max_new_tokens=MAX_LENGTH,
-            min_new_tokens=MIN_LENGTH,
+            max_length=MAX_LENGTH,
+            min_length=MIN_LENGTH,
+            do_sample=False
         )
-        return final[0]["generated_text"]
+        return final[0]["summary_text"]
 
     return chunk_summaries[0]
