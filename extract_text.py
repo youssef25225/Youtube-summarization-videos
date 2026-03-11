@@ -1,46 +1,34 @@
-import yt_dlp
-import whisper
-import tempfile
-import os
-
-
-def download_audio_temp(url: str) -> str:
-    """
-    Download audio temporarily and return file path.
-    File will exist only in system temp folder.
-    """
-
-    temp_dir = tempfile.mkdtemp()
-
-    ydl_opts = {
-    "format": "bestaudio/best",
-    "outtmpl": os.path.join(temp_dir, "%(id)s.%(ext)s"),
-    "noplaylist": True,
-    "quiet": True,
-    "cookiesfrombrowser": ("chrome",),  
-}
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
-
-    return filename
-
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 
 def transcribe(url: str) -> str:
     """
-    Download audio temporarily → transcribe → delete file
+    Fetch the transcript directly from YouTube.
+    No audio download or Whisper needed.
+    Raises a clear error if the video has no transcript.
     """
+    video_id = _extract_video_id(url)
 
-    file_path = download_audio_temp(url)
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+    except TranscriptsDisabled:
+        raise ValueError("This video has disabled transcripts.")
+    except NoTranscriptFound:
+        raise ValueError("No transcript found for this video. Try a video with captions enabled.")
 
-    model = whisper.load_model("base")
+    return " ".join([t["text"] for t in transcript])
 
-    result = model.transcribe(file_path)
 
-    # delete file after transcription
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
-    return result["text"]
-
+def _extract_video_id(url: str) -> str:
+    """
+    Extract video ID from various YouTube URL formats:
+    - https://www.youtube.com/watch?v=VIDEO_ID
+    - https://youtu.be/VIDEO_ID
+    - https://youtube.com/watch?v=VIDEO_ID&other=params
+    """
+    if "youtu.be/" in url:
+        return url.split("youtu.be/")[-1].split("?")[0]
+    elif "v=" in url:
+        return url.split("v=")[-1].split("&")[0]
+    else:
+        raise ValueError("Could not extract video ID from URL. Please use a standard YouTube link.")
